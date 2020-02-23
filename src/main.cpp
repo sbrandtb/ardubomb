@@ -1,10 +1,14 @@
 #include <Arduino.h>
 #include <LiquidCrystal.h>
 #include <Keypad.h>
+#include <Wire.h>
+#include <OneButton.h>
 
 // initialize the library with the numbers of the interface pins
-LiquidCrystal lcd(12, 11, A3, A2, A1, A0);
-
+// Johnnys Uno
+//LiquidCrystal lcd(12, 11, A3, A2, A1, A0);
+// Takeru Dev board
+LiquidCrystal lcd(2, 3, 4, 5, 6, 7, 8);
 
 const byte numRows = 4;
 const byte numCols = 4;
@@ -15,10 +19,21 @@ char keymap[numRows][numCols] = {
   {'*', '0', '#', 'D'}
 };
 
-byte rowPins[numRows] = {9,8,7,6}; //Rows 0 to 3
-byte colPins[numCols] = {5,4,3,2}; //Columns 0 to 3
+const unsigned int flashTime = 500;
+
+// Johnny uno
+//byte rowPins[numRows] = {9,8,7,6}; //Rows 0 to 3
+//byte colPins[numCols] = {5,4,3,2}; //Columns 0 to 3
+
+// Takeru
+byte rowPins[numRows] = {36, 34, 32, 30}; //Rows 0 to 3
+byte colPins[numCols] = {28, 26, 24, 22}; //Columns 0 to 3
+
 
 Keypad keypad = Keypad(makeKeymap(keymap), rowPins, colPins, numRows, numCols);
+
+OneButton tilt = OneButton(10, true);
+
 
 typedef struct Context {
   unsigned long sceneStart;
@@ -37,7 +52,7 @@ Scene scene = INIT;
 
 
 Scene loop_flash(Context* ctx) {
-  if (millis() - ctx->sceneStart > 2000) {
+  if (millis() - ctx->sceneStart > flashTime) {
     return SELECT_MODE; 
   }
   return NONE;
@@ -77,25 +92,38 @@ void setup_countdown_button() {
   Serial.println("entering countdown button");
   lcd.setCursor(0, 0);
   lcd.print("push buttons to defuse the bomb");
-  //lcd.autoscroll();
+  tilt.setPressTicks(2000);
 }
 
 Scene loop_countdown_button(Context* ctx) {
-  lcd.setCursor(0, 1);
-  unsigned int timeRemaining = 60 - (millis() - ctx->sceneStart) / 1000;
-  bool doBeep = !(timeRemaining % (timeRemaining / 5));
+  
+  
+  unsigned long int timeRemaining = 120000 - (millis() - ctx->sceneStart);
+  const unsigned long int freq = (timeRemaining / 1000 / 12 + 1) * 200;
+  const bool doBeep = (timeRemaining % freq) / (float)freq > 0.9;
+
+  char num[3];
+
+  tilt.tick();
+  Serial.println(tilt.isLongPressed());
+  
+
   if (ctx->isBeeping != doBeep) {
     Serial.println(doBeep);
     if (doBeep) {
-      tone(10, 50);
+      digitalWrite(11, 1);
+      tone(12, 440 * 12);
     } else {
-      noTone(10);
+      digitalWrite(11, 0);
+      noTone(12);
     }
     ctx->isBeeping = doBeep;
-    
   }
+
+  sprintf(num, "%03ld", timeRemaining / 1000 + 1);
     
-  lcd.print(timeRemaining);
+  lcd.setCursor(0, 1);
+  lcd.print(num);
   if (timeRemaining <= 0) {
     return BOOM;
   }
@@ -155,22 +183,4 @@ void loop() {
     Serial.println(newScene);
     loadScene(newScene, &ctx);
   }
-  //EasyBuzzer.update();
-  /*lcd.setCursor(0, 1);
-  // print the number of seconds since reset:
-  lcd.print(millis() / 1000);
-
-  digitalWrite(13, millis() / 1000 % 2);
-
-  const char keypressed = myKeypad.getKey();
-
-  lcd.setCursor(0, 0);
-  if (keypressed == NO_KEY) {
-    lcd.print(" ");
-  } else {
-    EasyBuzzer.singleBeep(440, 100);
-    lcd.print(keypressed);
-    Serial.println(keypressed);
-  }
-  EasyBuzzer.update();*/
 }
