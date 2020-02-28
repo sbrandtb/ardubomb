@@ -1,0 +1,1 @@
+#define MSG(...) Serial.println(__VA_ARGS__)
