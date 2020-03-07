@@ -52,6 +52,23 @@ TM1637Display display(A5, A4);
 
 OneButton tilt = OneButton(10, true);
 
+typedef struct BeepParam {
+  const uint32_t frequency;
+  const float dutyCyle;
+} BeepParam;
+
+inline BeepParam beepParamForTimeRemaining(const uint32_t timeRemaining) {
+  if (timeRemaining > 60000) {
+    return {6000, 0.05f};
+  } else if (timeRemaining > 30000) {
+    return {3000, 0.05f};
+  } else if (timeRemaining > 15000) {
+    return {1000, 0.05f};
+  } else if (timeRemaining > 5000) {
+    return {500, 0.1f};
+  } return {100, 0.2f};
+}
+
 void updateDisplay(const uint8_t newNumber, const byte newDisplayExtra) {
   if (newNumber != displayNumber || newDisplayExtra != displayExtra) {
     displayNumber = newNumber;
@@ -114,9 +131,8 @@ void setup_countdown_button() {
 
 Scene loop_countdown_button() {
   const int32_t timeRemaining = countdownTime - (millis() - sceneStart);
-  const uint32_t frequency = (timeRemaining / 1000 / 12 + 1) * 200;
-  const float dutyCycle = 0.9;
-  const bool doBeep = (timeRemaining % frequency) / (float)frequency > dutyCycle;
+  const BeepParam bp = beepParamForTimeRemaining(timeRemaining);
+  const bool doBeep = (timeRemaining % bp.frequency) / (float)bp.frequency > 1 - bp.dutyCyle;
 
   tilt.tick();
   MSG(tilt.isLongPressed());
