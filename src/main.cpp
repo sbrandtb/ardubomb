@@ -3,9 +3,15 @@
 #include <Keypad.h>
 #include <Wire.h>
 #include <OneButton.h>
+#include <TM1637Display.h>
 
 #include "debug.h"
 #include "scene.h"
+
+// Constants
+
+const byte DOTS = 0b01000000;
+const uint8_t DISPLAY_OFF = UINT8_MAX;
 
 // Configuration
 
@@ -36,12 +42,30 @@ byte _colPins[_numCols] = {28, 26, 24, 22}; //Columns 0 to 3
 
 char lineBuffer[lcdColumns + 1] = "\0";
 uint32_t sceneStart;
+uint8_t displayNumber = DISPLAY_OFF;
+byte displayExtra = 0;
 bool isBeeping;
 //LiquidCrystal lcd(12, 11, A3, A2, A1, A0); // Johnnys Uno
 LiquidCrystal lcd(2, 3, 4, 5, 6, 7, 8); // Takeru Dev board
 Keypad keypad(makeKeymap(_keymap), _rowPins, _colPins, _numRows, _numCols);
+TM1637Display display(A5, A4);
 
 OneButton tilt = OneButton(10, true);
+
+void updateDisplay(const uint8_t newNumber, const byte newDisplayExtra) {
+  if (newNumber != displayNumber || newDisplayExtra != displayExtra) {
+    displayNumber = newNumber;
+    displayExtra = newDisplayExtra;
+    display.showNumberDecEx(displayNumber, displayExtra, true);
+  }
+}
+
+void clearDisplay() {
+  if (displayNumber != DISPLAY_OFF) {
+    displayNumber = DISPLAY_OFF;
+    display.clear();
+  }
+}
 
 Scene scene = NONE;
 
@@ -58,6 +82,7 @@ void setup_flash() {
 #endif
   MSG("enter flash scene");
 
+  display.setBrightness(2);
   // set up the LCD's number of columns and rows:
   lcd.begin(lcdColumns, lcdRows);
   lcd.print("ArduBomb, v0.1");
@@ -109,6 +134,14 @@ Scene loop_countdown_button() {
   }
 
   sprintf(lineBuffer, "%03ld", timeRemaining / 1000 + 1);
+  const uint8_t minutesRemaining = timeRemaining / 1000 / 60;
+  const uint8_t secondsRemaining = timeRemaining / 1000 % 60;
+
+  updateDisplay(
+    minutesRemaining * 100 + secondsRemaining,
+    // Blink every half second
+    timeRemaining / 500 % 2 * DOTS);
+
   lcd.setCursor(0, 1);
   lcd.print(lineBuffer);
 
@@ -129,6 +162,13 @@ Scene loop_boom() {
   if (keypad.getKey() != NO_KEY) {
     return FLASH;
   }
+
+  if (millis() / 1000 % 2 == 0) {
+    clearDisplay();
+  } else {
+    updateDisplay(0, DOTS);
+  }
+
   return NONE;
 }
 
