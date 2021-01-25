@@ -4,4 +4,5 @@ typedef enum Scene {
   SELECT_MODE,
   COUNTDOWN_BUTTON,
   BOOM,
+  SHOW_CODE,
 } Scene;

@@ -16,10 +16,12 @@ const uint8_t DISPLAY_OFF = UINT8_MAX;
 // Configuration
 
 const uint32_t flashTime = 500;
-const uint32_t countdownTime = 120000;
-const uint16_t beepToneFrequency = 440 * 12;
-const uint8_t beeperPin = 12;
-const uint8_t blinkLedPin = 11;
+const uint32_t countdownTime = 10 * 1000;
+const uint16_t beepToneFrequency = 440 * 16;
+//const uint8_t beeperPin = 12;
+const uint8_t beeperPin = 10;
+//const uint8_t blinkLedPin = 11;
+const uint8_t blinkLedPin = LED_BUILTIN;
 const uint8_t lcdRows = 2;
 const uint8_t lcdColumns = 16;
 
@@ -32,11 +34,11 @@ char _keymap[_numRows][_numCols] = {
   {'*', '0', '#', 'D'}
 };
 // Johnny uno
-//const byte const rowPins[numRows] = {9,8,7,6}; //Rows 0 to 3
-//const byte const colPins[numCols] = {5,4,3,2}; //Columns 0 to 3
+byte _rowPins[_numRows] = {9,8,7,6}; //Rows 0 to 3
+byte _colPins[_numCols] = {5,4,3,2}; //Columns 0 to 3
 // Takeru
-byte _rowPins[_numRows] = {36, 34, 32, 30}; //Rows 0 to 3
-byte _colPins[_numCols] = {28, 26, 24, 22}; //Columns 0 to 3
+//byte _rowPins[_numRows] = {36, 34, 32, 30}; //Rows 0 to 3
+//byte _colPins[_numCols] = {28, 26, 24, 22}; //Columns 0 to 3
 
 // Global Variables. Urgs.
 
@@ -45,8 +47,10 @@ uint32_t sceneStart;
 uint8_t displayNumber = DISPLAY_OFF;
 byte displayExtra = 0;
 bool isBeeping;
-//LiquidCrystal lcd(12, 11, A3, A2, A1, A0); // Johnnys Uno
-LiquidCrystal lcd(2, 3, 4, 5, 6, 7, 8); // Takeru Dev board
+uint16_t defuseCode;
+
+LiquidCrystal lcd(12, 11, A3, A2, A1, A0); // Johnnys Uno
+//LiquidCrystal lcd(2, 3, 4, 5, 6, 7, 8); // Takeru Dev board
 Keypad keypad(makeKeymap(_keymap), _rowPins, _colPins, _numRows, _numCols);
 TM1637Display display(A5, A4);
 
@@ -115,10 +119,14 @@ void setup_select_mode() {
 }
 
 Scene loop_select_mode() {
-  if (keypad.getKey() == 'A') {
+  switch (keypad.getKey()) {
+  case 'A':
     return COUNTDOWN_BUTTON;
+  case 'B':
+    return SHOW_CODE;
+  default:
+    return NONE;
   }
-  return NONE;
 }
 
 void setup_countdown_button() {
@@ -149,7 +157,7 @@ Scene loop_countdown_button() {
     isBeeping = doBeep;
   }
 
-  sprintf(lineBuffer, "%03ld", timeRemaining / 1000 + 1);
+  sprintf(lineBuffer, "%03ld", timeRemaining / 1000);
   const uint8_t minutesRemaining = timeRemaining / 1000 / 60;
   const uint8_t secondsRemaining = timeRemaining / 1000 % 60;
 
@@ -188,11 +196,28 @@ Scene loop_boom() {
   return NONE;
 }
 
+void setup_show_code() {
+  randomSeed(millis());
+  defuseCode = random(10000);
+
+  lcd.print("Code:");
+  lcd.setCursor(0, 1);
+  lcd.print(defuseCode);
+}
+
+Scene loop_show_code() {
+  if (keypad.getKey() != NO_KEY) {
+    return NONE; 
+  }
+  return NONE;
+}
+
 void (*scene_setup[])() = {
   setup_flash,
   setup_select_mode,
   setup_countdown_button,
   setup_boom,
+  setup_show_code,
 };
 
 Scene (*scene_loop[])() = {
@@ -200,9 +225,10 @@ Scene (*scene_loop[])() = {
   loop_select_mode,
   loop_countdown_button,
   loop_boom,
+  loop_show_code,
 };
 
-void loadScene(Scene _scene) {
+void loadScene(const Scene _scene) {
   MSG("load scene %d");
   MSG(_scene);
   
